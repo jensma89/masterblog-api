@@ -1,3 +1,5 @@
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -5,6 +7,13 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)  # This will enable CORS for all routes
+
+
+limiter = Limiter(
+    app,
+    key_func=get_remote_address,  # Limit per IP address
+    default_limits=["100 per hour"] # 100 requests per hour
+)
 
 
 SWAGGER_URL = "/api/docs"   # URL for the documentation
@@ -57,6 +66,7 @@ def get_posts():
 
 
 @app.post("/api/posts")
+@limiter.limit("10 per minute")
 def add_post():
     data = request.get_json()
 
