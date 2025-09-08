@@ -46,7 +46,14 @@ def get_posts():
         reverse = direction == "desc"
         posts_copy.sort(key=lambda p: p[sort_field], reverse=reverse)
 
-    return jsonify(posts_copy)
+
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 10))
+    start = (page - 1) * limit
+    end = start + limit
+    paginated_posts = POSTS[start:end]
+
+    return jsonify(paginated_posts)
 
 
 @app.post("/api/posts")
