@@ -74,6 +74,21 @@ def update_post(post_id):
     return jsonify({"error": "Post not found"}), 404
 
 
+@app.get("/api/posts/search")
+def search_posts():
+    title_query = request.args.get("title", "").lower()
+    content_query = request.args.get("content", "").lower()
+
+    # Filter the posts
+    results = [
+        post for post in POSTS
+        if (title_query in post['title'].lower()
+            if title_query else False)
+        or (content_query in post['content'].lower()
+            if content_query else False)
+    ]
+    return jsonify(results), 200
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5002, debug=True)
