@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -10,9 +10,33 @@ POSTS = [
 ]
 
 
-@app.route('/api/posts', methods=['GET'])
+@app.get('/api/posts')
 def get_posts():
     return jsonify(POSTS)
+
+
+@app.post("/api/posts")
+def add_post(post):
+    data = request.get_json()
+
+    # Validate input
+    missing = [field for field in ("title", "content") if field not in data or not data[field]]
+    if missing:
+        return jsonify({"error": f"Missing field: {', '.join(missing)}"}), 400
+
+    # Generate new ID
+    new_id = max((post['id'] for post in POSTS), default=0) + 1
+
+    # Create new post
+    new_post = {
+        "id": new_id,
+        "title": post['title'],
+        "content": post['content']
+    }
+    POSTS.append(new_post)
+
+    return jsonify(new_post), 201
+
 
 
 if __name__ == '__main__':
