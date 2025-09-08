@@ -16,7 +16,7 @@ CORS(app)  # This will enable CORS for all routes
 
 
 limiter = Limiter(
-    app,
+    app=app,
     key_func=get_remote_address,  # Limit per IP address
     default_limits=["100 per hour"] # 100 requests per hour
 )
