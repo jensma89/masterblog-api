@@ -16,13 +16,15 @@ def get_posts():
 
 
 @app.post("/api/posts")
-def add_post(post):
+def add_post():
     data = request.get_json()
 
     # Validate input
-    missing = [field for field in ("title", "content") if field not in data or not data[field]]
+    missing = [field for field in ("title", "content")
+               if field not in data or not data[field]]
     if missing:
-        return jsonify({"error": f"Missing field: {', '.join(missing)}"}), 400
+        return jsonify({"error": f"Missing field: "
+                                 f"{', '.join(missing)}"}), 400
 
     # Generate new ID
     new_id = max((post['id'] for post in POSTS), default=0) + 1
@@ -30,8 +32,8 @@ def add_post(post):
     # Create new post
     new_post = {
         "id": new_id,
-        "title": post['title'],
-        "content": post['content']
+        "title": data['title'],
+        "content": data['content']
     }
     POSTS.append(new_post)
 
