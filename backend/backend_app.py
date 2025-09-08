@@ -52,6 +52,27 @@ def delete_post(post_id):
     return jsonify({"message": "Post deleted"}), 200
 
 
+@app.put("/api/posts/<int:post_id>")
+def update_post(post_id):
+    global POSTS
+    data = request.get_json()
+
+    # Validation
+    if not data or "title" not in data or "content" not in data:
+        return jsonify({"error": "Missing title or content"}), 400
+
+    # Find post
+    for item, post in enumerate(POSTS):
+        if post['id'] == post_id:
+            POSTS[item] = {
+                "id": post_id,
+                "title": data['title'],
+                "content": data['content']
+            }
+            return jsonify(POSTS[item]), 200
+
+    return jsonify({"error": "Post not found"}), 404
+
 
 
 if __name__ == '__main__':
