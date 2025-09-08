@@ -1,7 +1,13 @@
+"""
+backend_app.py
+
+Handle some CRUD operations, GET, PUT, POST, DELETE.
+Additional sort the blog posts via query parameters.
+"""
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_swagger_ui import get_swaggerui_blueprint
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 
 
@@ -28,24 +34,28 @@ app.register_blueprint(swagger_ui_blueprint,
                        url_prefix=SWAGGER_URL)
 
 
-
 POSTS = [
-    {"id": 1, "title": "First post", "content": "This is the first post."},
-    {"id": 2, "title": "Second post", "content": "This is the second post."},
+    {"id": 1,
+     "title": "First post",
+     "content": "This is the first post."},
+    {"id": 2,
+     "title": "Second post",
+     "content": "This is the second post."},
 ]
 
 
 @app.get('/api/posts')
 def get_posts():
+    """Get the list of posts."""
     # Get the query parameter
     sort_field = request.args.get("sort")
     direction = request.args.get("direction", "asc")
 
     # Validate parameters
     if sort_field and sort_field not in ["title", "content"]:
-        return jsonify({"error": "Invalid sort field"}), 400
+        abort(400, "Invalid sort field")
     if direction not in ["asc", "desc"]:
-        return jsonify({"error": "Invalid sort direction"}), 400
+        abort(400, "Invalid sort direction")
 
     # Copy the posts to save the original direction
     posts_copy = POSTS.copy()
@@ -55,7 +65,7 @@ def get_posts():
         reverse = direction == "desc"
         posts_copy.sort(key=lambda p: p[sort_field], reverse=reverse)
 
-
+    # Pagination configuration
     page = int(request.args.get("page", 1))
     limit = int(request.args.get("limit", 10))
     start = (page - 1) * limit
@@ -68,14 +78,14 @@ def get_posts():
 @app.post("/api/posts")
 @limiter.limit("10 per minute")
 def add_post():
+    """Create a new blog post."""
     data = request.get_json()
 
     # Validate input
     missing = [field for field in ("title", "content")
                if field not in data or not data[field]]
     if missing:
-        return jsonify({"error": f"Missing field: "
-                                 f"{', '.join(missing)}"}), 400
+        abort(400, f"Missing field: {', '.join(missing)}")
 
     # Generate new ID
     new_id = max((post['id'] for post in POSTS), default=0) + 1
@@ -93,24 +103,28 @@ def add_post():
 
 @app.delete("/api/posts/<int:post_id>")
 def delete_post(post_id):
+    """Remove a post."""
     global POSTS
     # Find the post
-    post = next((post for post in POSTS if post['id'] == post_id), None)
+    post = next((post for post in POSTS
+                 if post['id'] == post_id), None)
     if not post:
-        return jsonify({"error": "Post not found"}), 404
+        abort(404, "Post not found")
 
-    POSTS = [post for post in POSTS if post['id'] != post_id]
+    POSTS = [post for post in POSTS
+             if post['id'] != post_id]
     return jsonify({"message": "Post deleted"}), 200
 
 
 @app.put("/api/posts/<int:post_id>")
 def update_post(post_id):
+    """Make some changes by an existing post."""
     global POSTS
     data = request.get_json()
 
     # Validation
     if not data or "title" not in data or "content" not in data:
-        return jsonify({"error": "Missing title or content"}), 400
+        abort(400, "Missing title or content")
 
     # Find post
     for item, post in enumerate(POSTS):
@@ -122,11 +136,12 @@ def update_post(post_id):
             }
             return jsonify(POSTS[item]), 200
 
-    return jsonify({"error": "Post not found"}), 404
+    abort(404, "Post not found")
 
 
 @app.get("/api/posts/search")
 def search_posts():
+    """Search posts with ah query parameter by title or content."""
     title_query = request.args.get("title", "").lower()
     content_query = request.args.get("content", "").lower()
 
@@ -139,6 +154,22 @@ def search_posts():
             if content_query else False)
     ]
     return jsonify(results), 200
+
+
+@app.errorhandler(400)
+def bad_request(error):
+    return jsonify({"status": 400, "message": str(error)}), 400
+
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"status": 404, "message": "Resource not found"}), 404
+
+
+@app.errorhandler(500)
+def server_error(error):
+    return jsonify({"status": 500, "message": "Internal Server Error"}), 500
+
 
 
 if __name__ == '__main__':
