@@ -1,0 +1,22 @@
+[
+    {
+        "id": 1,
+        "title": "Introduction to Flask",
+        "content": "Learn the basics of Flask and build your first API."
+    },
+    {
+        "id": 2,
+        "title": "My Second Post",
+        "content": "This is the second post."
+    },
+    {
+        "id": 3,
+        "title": "CRUD is fun!",
+        "content": "I like to develop with CRUD methods"
+    },
+    {
+        "id": 4,
+        "title": "Flask Rocks!",
+        "content": "Flask is nice but iam really curios to learn FastAPI"
+    }
+]

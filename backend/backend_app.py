@@ -9,6 +9,8 @@ from flask_limiter.util import get_remote_address
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
+import json as js
+import os
 
 
 app = Flask(__name__)
@@ -33,44 +35,57 @@ swagger_ui_blueprint = get_swaggerui_blueprint(
 app.register_blueprint(swagger_ui_blueprint,
                        url_prefix=SWAGGER_URL)
 
+DATA_FILE = os.path.join(os.path.dirname(__file__),
+                         "data", "blog_storage.json")
 
-POSTS = [
-    {"id": 1,
-     "title": "First post",
-     "content": "This is the first post."},
-    {"id": 2,
-     "title": "Second post",
-     "content": "This is the second post."},
-]
+
+def load_posts():
+    """Load and read the posts from json."""
+    if not os.path.exists(DATA_FILE):
+        return []
+    try:
+        with open(DATA_FILE, "r") as file:
+            return js.load(file)
+    except (js.JSONDecodeError, FileNotFoundError):
+        print("JSON or File not found!")
+        return []
+
+
+def save_posts(posts):
+    """Write the new data to json."""
+    with open(DATA_FILE, "w") as file:
+        js.dump(posts, file, indent=4)
 
 
 @app.get('/api/posts')
 def get_posts():
     """Get the list of posts."""
+    posts = load_posts()
     # Get the query parameter
     sort_field = request.args.get("sort")
     direction = request.args.get("direction", "asc")
 
     # Validate parameters
     if sort_field and sort_field not in ["title", "content"]:
-        abort(400, "Invalid sort field")
+        abort(400, description="Invalid sort field")
     if direction not in ["asc", "desc"]:
-        abort(400, "Invalid sort direction")
+        abort(400, description="Invalid sort direction")
 
     # Copy the posts to save the original direction
-    posts_copy = POSTS.copy()
+    posts_copy = load_posts()
 
     # Optional sorting
     if sort_field:
         reverse = direction == "desc"
-        posts_copy.sort(key=lambda p: p[sort_field], reverse=reverse)
+        posts_copy.sort(key=lambda p: p[sort_field],
+                        reverse=reverse)
 
     # Pagination configuration
     page = int(request.args.get("page", 1))
     limit = int(request.args.get("limit", 10))
     start = (page - 1) * limit
     end = start + limit
-    paginated_posts = POSTS[start:end]
+    paginated_posts = posts_copy[start:end]
 
     return jsonify(paginated_posts)
 
@@ -79,24 +94,27 @@ def get_posts():
 @limiter.limit("10 per minute")
 def add_post():
     """Create a new blog post."""
+    posts = load_posts()
     data = request.get_json()
 
     # Validate input
     missing = [field for field in ("title", "content")
                if field not in data or not data[field]]
     if missing:
-        abort(400, f"Missing field: {', '.join(missing)}")
+        abort(400, description=f"Missing field: "
+                               f"{', '.join(missing)}")
 
     # Generate new ID
-    new_id = max((post['id'] for post in POSTS), default=0) + 1
+    new_id = max((post["id"] for post in posts), default=0) + 1
 
     # Create new post
     new_post = {
         "id": new_id,
-        "title": data['title'],
-        "content": data['content']
+        "title": data["title"],
+        "content": data["content"]
     }
-    POSTS.append(new_post)
+    posts.append(new_post)
+    save_posts(posts)
 
     return jsonify(new_post), 201
 
@@ -104,50 +122,53 @@ def add_post():
 @app.delete("/api/posts/<int:post_id>")
 def delete_post(post_id):
     """Remove a post."""
-    global POSTS
+    posts = load_posts()
     # Find the post
-    post = next((post for post in POSTS
+    post = next((post for post in posts
                  if post['id'] == post_id), None)
     if not post:
-        abort(404, "Post not found")
+        abort(404, description="Post not found")
 
-    POSTS = [post for post in POSTS
+    posts = [post for post in posts
              if post['id'] != post_id]
+    save_posts(posts)
     return jsonify({"message": "Post deleted"}), 200
 
 
 @app.put("/api/posts/<int:post_id>")
 def update_post(post_id):
     """Make some changes by an existing post."""
-    global POSTS
+    posts = load_posts()
     data = request.get_json()
 
     # Validation
     if not data or "title" not in data or "content" not in data:
-        abort(400, "Missing title or content")
+        abort(400, description="Missing title or content")
 
     # Find post
-    for item, post in enumerate(POSTS):
+    for item, post in enumerate(posts):
         if post['id'] == post_id:
-            POSTS[item] = {
+            posts[item] = {
                 "id": post_id,
                 "title": data['title'],
                 "content": data['content']
             }
-            return jsonify(POSTS[item]), 200
+            save_posts(posts)
+            return jsonify(posts[item]), 200
 
-    abort(404, "Post not found")
+    abort(404, description="Post not found")
 
 
 @app.get("/api/posts/search")
 def search_posts():
     """Search posts with ah query parameter by title or content."""
+    posts = load_posts()
     title_query = request.args.get("title", "").lower()
     content_query = request.args.get("content", "").lower()
 
     # Filter the posts
     results = [
-        post for post in POSTS
+        post for post in posts
         if (title_query in post['title'].lower()
             if title_query else False)
         or (content_query in post['content'].lower()
@@ -158,17 +179,20 @@ def search_posts():
 
 @app.errorhandler(400)
 def bad_request(error):
-    return jsonify({"status": 400, "message": str(error)}), 400
+    return jsonify({"status": 400,
+                    "message": str(error)}), 400
 
 
 @app.errorhandler(404)
 def not_found(error):
-    return jsonify({"status": 404, "message": "Resource not found"}), 404
+    return jsonify({"status": 404,
+                    "message": "Resource not found"}), 404
 
 
 @app.errorhandler(500)
 def server_error(error):
-    return jsonify({"status": 500, "message": "Internal Server Error"}), 500
+    return jsonify({"status": 500,
+                    "message": "Internal Server Error"}), 500
 
 
 
