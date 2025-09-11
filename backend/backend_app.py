@@ -72,7 +72,7 @@ def get_posts():
         abort(400, description="Invalid sort direction")
 
     # Copy the posts to save the original direction
-    posts_copy = load_posts()
+    posts_copy = posts.copy()
 
     # Optional sorting
     if sort_field:
@@ -186,13 +186,13 @@ def bad_request(error):
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({"status": 404,
-                    "message": "Resource not found"}), 404
+                    "message": str(error)}), 404
 
 
 @app.errorhandler(500)
 def server_error(error):
     return jsonify({"status": 500,
-                    "message": "Internal Server Error"}), 500
+                    "message": str(error)}), 500
 
 
 
